@@ -363,8 +363,14 @@ namespace SaintCoinach {
             try {
                 using (var zip = new ZipFile(StateFile.FullName, ZipEncoding)) {
                     tempPath = ExtractPacks(zip, previousVersion);
-                    var previousPack = new PackCollection(Path.Combine(tempPath, previousVersion));
-                    previousPack.GetPack(exdPackId).KeepInMemory = true;
+                    var previousPack = tempPath == null
+                        ? Packs
+                        : new PackCollection(Path.Combine(tempPath, previousVersion));
+
+                    if (tempPath == null)
+                        Console.WriteLine("History archive is missing pack data. Using current packs for update.");
+                    else
+                        previousPack.GetPack(exdPackId).KeepInMemory = true;
 
                     RelationDefinition previousDefinition;
                     if (previousVersion == _GameData.Definition.Version) {
@@ -429,8 +435,32 @@ namespace SaintCoinach {
             File.Delete(tempPath);
             Directory.CreateDirectory(tempPath);
 
-            foreach (var entry in zip.Entries.Where(e => e.FileName.StartsWith(previousVersion)))
-                    entry.Extract(tempPath);
+            var versionPrefix = previousVersion + "/";
+            var versionEntries = zip.Entries
+                .Where(e => e.FileName.StartsWith(versionPrefix, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            var extractionRoot = tempPath;
+            var entriesToExtract = versionEntries.AsEnumerable();
+
+            if (versionEntries.Length == 0) {
+                var expansionPrefixes = PackIdentifier.ExpansionToKeyMap.Keys
+                    .Select(expansion => expansion + "/")
+                    .ToArray();
+                var rootEntries = zip.Entries
+                    .Where(e => expansionPrefixes.Any(prefix => e.FileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                    .ToArray();
+
+                if (rootEntries.Length == 0)
+                    return null;
+
+                extractionRoot = Path.Combine(tempPath, previousVersion);
+                Directory.CreateDirectory(extractionRoot);
+                entriesToExtract = rootEntries;
+            }
+
+            foreach (var entry in entriesToExtract)
+                entry.Extract(extractionRoot);
 
             return tempPath;
         }
