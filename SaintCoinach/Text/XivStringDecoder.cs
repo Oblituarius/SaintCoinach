@@ -123,11 +123,6 @@ namespace SaintCoinach.Text {
             while (input.BaseStream.Position < end) {
                 var v = input.ReadByte();
                 if (v == TagStartMarker) {
-                    var remaining = end - input.BaseStream.Position;
-                    if (remaining < 2) {
-                        pendingStatic.Add(v);
-                        break;
-                    }
                     // What this function does:
                     //   If no item in "pending", just return
                     //   A list of interface can take any instance of that interface
@@ -154,11 +149,8 @@ namespace SaintCoinach.Text {
         }
 
         private INode DecodeTag(BinaryReader input) {
-            var tagStart = input.BaseStream.Position - 1;
-
-            try {
-                // the first byte means the tag type
-                var tag = (TagType)input.ReadByte();
+            // the first byte means the tag type
+            var tag = (TagType)input.ReadByte();
 
             // edited
             // the second byte(s) means the length of commnad
@@ -167,8 +159,6 @@ namespace SaintCoinach.Text {
             String lengthByteStr = BitConverter.ToString(lengthByte.ToArray()).Replace("-", String.Empty);
             
             var end = input.BaseStream.Position + length;
-            if (end > input.BaseStream.Length)
-                throw new InvalidDataException($"Invalid tag length {length} at offset {tagStart} for tag {tag}.");
             // System.Diagnostics.Trace.WriteLine(string.Format("{0} @ {1:X}h+{2:X}h", tag, input.BaseStream.Position, length));
             TagDecoder decoder = null;
             // ref and out:
@@ -186,15 +176,9 @@ namespace SaintCoinach.Text {
                 System.Diagnostics.Debug.WriteLine(string.Format("Position mismatch in XivStringDecoder.DecodeTag.  Position {0} != predicted {1}.", input.BaseStream.Position, end));
                 input.BaseStream.Position = end;
             }
-                if (input.ReadByte() != TagEndMarker)
-                    throw new InvalidDataException();
-                return result;
-            } catch (EndOfStreamException ex) {
-                var remaining = input.BaseStream.Length - input.BaseStream.Position;
-                throw new InvalidDataException($"Unexpected end of tag data at offset {tagStart}. Remaining bytes: {remaining}.", ex);
-            } catch (InvalidDataException ex) {
-                throw new InvalidDataException($"Invalid tag data at offset {tagStart}.", ex);
-            }
+            if (input.ReadByte() != TagEndMarker)
+                throw new InvalidDataException();
+            return result;
         }
 
         private void AddStatic(List<byte> pending, List<INode> targetParts) {
