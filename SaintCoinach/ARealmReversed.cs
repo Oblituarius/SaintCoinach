@@ -363,8 +363,19 @@ namespace SaintCoinach {
             try {
                 using (var zip = new ZipFile(StateFile.FullName, ZipEncoding)) {
                     tempPath = ExtractPacks(zip, previousVersion);
-                    var previousPack = new PackCollection(Path.Combine(tempPath, previousVersion));
-                    previousPack.GetPack(exdPackId).KeepInMemory = true;
+                    
+                    // Check if tempPath is valid and directory exists before creating PackCollection
+                    string previousPackPath = tempPath == null ? null : Path.Combine(tempPath, previousVersion);
+                    PackCollection previousPack;
+                    
+                    if (string.IsNullOrEmpty(previousPackPath) || !Directory.Exists(previousPackPath)) {
+                        // History archive missing or corrupted, use current packs
+                        Console.WriteLine("History archive pack data not found. Using current packs for update.");
+                        previousPack = Packs;
+                    } else {
+                        previousPack = new PackCollection(previousPackPath);
+                        previousPack.GetPack(exdPackId).KeepInMemory = true;
+                    }
 
                     RelationDefinition previousDefinition;
                     if (previousVersion == _GameData.Definition.Version) {
